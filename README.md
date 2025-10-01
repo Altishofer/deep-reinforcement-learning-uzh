@@ -39,9 +39,12 @@ dropout, batch normalization) and analyze their impact.
 References:
 [1] Maxime Chevalier-Boisvert et al.: “Minigrid & Miniworld: Modular & Customizable Reinforcement Learning Environments
 for Goal-Oriented Tasks.” NeurIPS (2023). Available at https://minigrid.farama.org/.
+
 [2] Karl Cobbe et al.: “Leveraging Procedural Generation to Benchmark Reinforcement Learning.” ArXiv preprint (2019),
 available at arXiv:1912:01588 and https://github.com/openai/procgen.
+
 [3] Heinrich Küttler et al.: “The NetHack Learning Environment” NeurIPS (2020). Available
 at https://github.com/facebookresearch/nle.
+
 [4] Matthias Weissenbacher et al.: “SiT: Symmetry-Invariant Transformers for Generalisation in Reinforcement Learning.”
 ArXiv preprint (2024), available at arXiv:2406:15025.
