@@ -1,6 +1,8 @@
 import math
 import random
+import warnings
 from dataclasses import dataclass
+from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,69 +11,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from procgen import ProcgenEnv
 from torch.distributions import Categorical
+from torch.nn.init import _calculate_fan_in_and_fan_out
 from tqdm.auto import tqdm
 
-# ------------------------------------------------------------------------------------
-# SiT: Symmetry-Invariant Transformers for Generalisation in Reinforcement Learning
-# ------------------------------------------------------------------------------------
-#
-# Copyright (C) 2024 by Matthias Weissenbacher
-#
-# This file is part of the implementation for the ICML 2024 paper titled
-# "SiT: Symmetry-Invariant Transformers for Generalisation in Reinforcement Learning".
-# The implementation details are confidential and proprietary.
-#
-# ------------------------------------------------------------------------------------
-# Abstract:
-# ------------------------------------------------------------------------------------
-# A major open challenge in reinforcement learning (RL) is the effective deployment
-# of a trained policy to out-of-distribution data and semantically-similar environments.
-# To overcome these limitations, we propose an invariant as well as equivariant scalable
-# Transformer model that respects various local and global symmetry transformations
-# of the input data. We present a symmetry-preserving neural network attention layer
-# by adapting the self-attention mechanism to maintain graph symmetries, referred to
-# as Graph Symmetric Attention mechanism (GSA). Our model leverages the interplay
-# of local vs. global information to attain inherent out-of-distribution generalization.
-# The invariant and equivariant latent representations are then used as a starting point
-# for subsequent policy and value networks. Building on vision transformers, we
-# demonstrate improved generalization using our approach on MiniGrid and Procgen
-# environments.
-#
-# ------------------------------------------------------------------------------------
-# License:
-# ------------------------------------------------------------------------------------
-# This software is provided "as is", without warranty of any kind, express or implied,
-# including but not limited to the warranties of merchantability, fitness for a
-# particular purpose and noninfringement. In no event shall the authors or copyright
-# holders be liable for any claim, damages or other liability, whether in an action
-# of contract, tort or otherwise, arising from, out of or in connection with the
-# software or the use or other dealings in the software.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# ------------------------------------------------------------------------------------
-
-
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import math
-import warnings
-
-from functools import partial
-from itertools import repeat
-import collections.abc
-
-from torch.nn.init import _calculate_fan_in_and_fan_out
 
 class Sym_Break_Linear_base(nn.Module):
     """ PI Symmetry breaking Linear('ish) layer """
@@ -118,7 +60,7 @@ class Attention_base(nn.Module):
         self.qkv = nn.Linear(dim, dim * 2, bias=qkv_bias)
         self.qkv_SymBreak = Sym_Break_Linear_base(num_patches, dim * 2)
 
-        # self.rot_SymBreak = Rotation_Symmetry_Break(num_patches,num_heads) # uncomment for SiT and SiT*
+        self.rot_SymBreak = Rotation_Symmetry_Break(num_patches, num_heads)  # uncomment for SiT and SiT*
         # self.rot_SymBreak2 = Rotation_Symmetry_Break(num_patches,num_heads) # uncomment for SiT*
 
         self.proj = nn.Linear(dim, dim)
@@ -136,7 +78,7 @@ class Attention_base(nn.Module):
         attn = (q @ k.transpose(-1, -2)) * self.scale
         attn = attn + attn.transpose(-2, -1)
         # attn =self.Sym_Break_Had(attn)
-        # attn = self.rot_SymBreak(attn) # uncomment for SiT  and SiT*
+        attn = self.rot_SymBreak(attn)  # uncomment for SiT  and SiT*
         # attn = self.rot_SymBreak2(nn.GELU()(attn))- attn # uncomment for SiT*
         attn = attn.softmax(dim=-1)
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
@@ -158,7 +100,6 @@ class Block_base(nn.Module):
     def forward(self, x):
         x = x + self.attn(self.norm1(x))
         return x
-
 
 
 class Mlp(nn.Module):
@@ -996,16 +937,13 @@ class SietTiny(nn.Module):
         return x
 
 
-
-
-
 @dataclass
 class Config:
     env_name: str = "leaper"
     num_envs: int = 32
     num_levels: int = 100
     start_level: int = 0
-    total_timesteps: int = 50_000
+    total_timesteps: int = 5000_000
     rollout_length: int = 128
     update_epochs: int = 2
     minibatch_size: int = 1024
@@ -1056,8 +994,6 @@ class TinySiETPolicy(nn.Module):
         patch_size = 8
         num_heads = 8
         depth = 1
-
-        print(f"[TinySiETPolicy.__init__] in_ch={in_ch}, img_size={img_size}, embed_dim={embed_dim}, patch_size={patch_size}, num_heads={num_heads}, depth={depth}")
 
         self.backbone = SietTiny(
             img_size=img_size,
@@ -1121,7 +1057,6 @@ class TinySiETPolicy(nn.Module):
         # Lazily build adapter from observed input dim to 64
         if self.adapter is None:
             in_dim = z.shape[-1]
-            print(f"[TinySiETPolicy] creating adapter Linear({in_dim} -> {self.feat_dim})")
             self.adapter = nn.Linear(in_dim, self.feat_dim)
             nn.init.orthogonal_(self.adapter.weight, gain=math.sqrt(2))
             nn.init.constant_(self.adapter.bias, 0.0)
@@ -1146,15 +1081,8 @@ class PPO:
         self.N = obs0.shape[0]
         self.H, self.W, self.C = obs0.shape[1:4]
 
-        print(f"[PPO.__init__] initial obs0 shape NHWC: {tuple(obs0.shape)}")
-        print(f"[PPO.__init__] N={self.N}, H={self.H}, W={self.W}, C={self.C}")
-
         self.num_actions = self.env.action_space.n if hasattr(self.env, "action_space") else 15
-        print(f"[PPO.__init__] num_actions={self.num_actions}")
-
         self.net = TinySiETPolicy(self.C, self.num_actions, self.H, self.W).to(cfg.device)
-        print(f"[PPO.__init__] net device={cfg.device}")
-
         self.opt = torch.optim.Adam(self.net.parameters(), lr=cfg.learning_rate, eps=1e-5)
         self.last_obs = obs0
         self.global_step = 0
@@ -1164,7 +1092,6 @@ class PPO:
         # NHWC uint8 -> BCHW float in [0,1]
         x = torch.from_numpy(obs_np).to(self.cfg.device).float() / 255.0
         x = x.permute(0, 3, 1, 2).contiguous()
-        print(f"[PPO._prep] obs_np NHWC: {tuple(obs_np.shape)} -> x BCHW: {tuple(x.shape)}")
         return x
 
     def _policy(self, x):
@@ -1188,15 +1115,12 @@ class PPO:
         self.net.eval()
         for t in range(T):
             self.global_step += N
-            print(f"\n[collect] t={t} obs NHWC: {tuple(obs.shape)}")
             x = self._prep(obs)
             with torch.no_grad():
                 dist, v = self._policy(x)
                 a = dist.sample()
                 lp = dist.log_prob(a)
-            print(f"[collect] actions a shape: {tuple(a.shape)}, logp shape: {tuple(lp.shape)}, value shape: {tuple(v.shape)}")
             next_obs, r, d, _ = self._step_env(a.cpu().numpy())
-            print(f"[collect] step -> next_obs NHWC: {tuple(next_obs.shape)}, r shape: {tuple(r.shape)}, d shape: {tuple(d.shape)}")
             obs_buf[t] = x
             act_buf[t] = a
             logp_buf[t] = lp
@@ -1208,7 +1132,6 @@ class PPO:
             x_last = self._prep(obs)
             self.net.eval()
             _, next_v = self._policy(x_last)
-        print(f"[collect] next_v shape: {tuple(next_v.shape)}")
 
         adv = torch.zeros_like(rew_buf)
         lastgaelam = torch.zeros((N,), device=self.cfg.device)
@@ -1221,7 +1144,6 @@ class PPO:
 
         ret = adv + val_buf
         self.last_obs = obs
-        print(f"[collect] buffers: obs_buf {tuple(obs_buf.shape)}, act_buf {tuple(act_buf.shape)}, logp_buf {tuple(logp_buf.shape)}, adv {tuple(adv.shape)}, ret {tuple(ret.shape)}")
         return obs_buf, act_buf, logp_buf, adv, ret
 
     def update(self, obs_buf, act_buf, logp_buf, adv_buf, ret_buf):
@@ -1232,7 +1154,6 @@ class PPO:
         old_logp = logp_buf.reshape(B)
         adv = adv_buf.reshape(B)
         ret = ret_buf.reshape(B)
-        print(f"\n[update] B={B}, obs {tuple(obs.shape)}, act {tuple(act.shape)}, old_logp {tuple(old_logp.shape)}, adv {tuple(adv.shape)}, ret {tuple(ret.shape)}")
 
         adv = (adv - adv.mean()) / (adv.std(unbiased=False) + 1e-8)
         inds = np.arange(B)
@@ -1241,10 +1162,8 @@ class PPO:
         vloss_acc = []
         for epoch in range(self.cfg.update_epochs):
             np.random.shuffle(inds)
-            print(f"[update] epoch {epoch} shuffled inds")
             for s in range(0, B, self.cfg.minibatch_size):
                 mb = inds[s:s + self.cfg.minibatch_size]
-                print(f"[update] mb size={len(mb)}")
                 dist, v = self._policy(obs[mb])
                 new_logp = dist.log_prob(act[mb])
                 entropy = dist.entropy().mean()
@@ -1259,8 +1178,6 @@ class PPO:
                 v_loss = torch.max(v_loss_unclipped, v_loss_clipped).mean()
                 loss = pg_loss + self.cfg.vf_coef * v_loss - self.cfg.ent_coef * entropy
 
-                print(f"[update] batch: new_logp {tuple(new_logp.shape)}, ratio {tuple(ratio.shape)}, pg_loss {pg_loss.item():.6f}, v_loss {v_loss.item():.6f}, entropy {entropy.item():.6f}")
-
                 self.opt.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.net.parameters(), self.cfg.max_grad_norm)
@@ -1271,11 +1188,6 @@ class PPO:
 
     def train(self):
         num_updates = self.cfg.total_timesteps // (self.cfg.num_envs * self.cfg.rollout_length)
-        print(f"Device: {self.cfg.device}")
-        print(f"Env: {self.cfg.env_name} | num_envs: {self.cfg.num_envs} | num_levels: {self.cfg.num_levels} | start_level: {self.cfg.start_level}")
-        print(f"Obs shape: (N={self.N}, H={self.H}, W={self.W}, C={self.C})")
-        print(f"Num actions: {self.num_actions}")
-        print(f"Total updates: {num_updates} | Samples per update: {self.cfg.num_envs * self.cfg.rollout_length}")
         pbar = tqdm(range(num_updates), desc="PPO")
         for ui in pbar:
             obs_buf, act_buf, logp_buf, adv, ret = self.collect()
