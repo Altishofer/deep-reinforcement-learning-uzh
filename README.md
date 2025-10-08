@@ -54,6 +54,11 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+___
+
+## Prototyping
+
+- 
 
 ___
 
@@ -73,4 +78,8 @@ ArXiv preprint (2024), available at arXiv:2406:15025.
 
 
 
-
+## GitHub Resources
+- [ProcGen Repository](https://github.com/openai/procgen?tab=readme-ov-file)
+- [Minigrid Repository](https://github.com/Farama-Foundation/Minigrid)
+- [Gym OpenAI](https://github.com/openai/gym)
+- [Rotation Equivariant Vision Transformers](https://github.com/matthias-weissenbacher/SiT)
