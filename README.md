@@ -1,13 +1,17 @@
+[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Torchvision](https://img.shields.io/badge/Torchvision-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/vision/stable/index.html)
+[![Gymnasium](https://img.shields.io/badge/Gymnasium-000000?logo=openai&logoColor=white)](https://gymnasium.farama.org/)
+[![Procgen](https://img.shields.io/badge/Procgen-3776AB?logo=python&logoColor=white)](https://github.com/openai/procgen)
+[![NumPy](https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white)](https://numpy.org/)
+[![Matplotlib](https://img.shields.io/badge/Matplotlib-11557C?logo=matplotlib&logoColor=white)](https://matplotlib.org/)
+[![opencv-python](https://img.shields.io/badge/opencv--python-5C3EE8?logo=opencv&logoColor=white)](https://pypi.org/project/opencv-python/)
+
+
 # Generalization in Procedurally Generated Environments
 
 This repository contains code and instructions for the project "Generalization in Procedurally Generated Environments" as part of the Deep Reinforcement Learning course at the University of Zurich (UZH).
 
-
-## GitHub Resources
-- [ProcGen Repository](https://github.com/openai/procgen?tab=readme-ov-file)
-- [Minigrid Repository](https://github.com/Farama-Foundation/Minigrid)
-- [Gym OpenAI](https://github.com/openai/gym)
-- [Rotation Equivariant Vision Transformers](https://github.com/matthias-weissenbacher/SiT)
+___
 
 ## Original Task Description
 Train on subsets of generated levels and test on unseen ones to measure true generalization. Explore data augmentation
@@ -21,21 +25,12 @@ the supposedly especially generalizable Symmetry-Invariant Vision Transformer [[
 4) Experiment with techniques that aim to improve generalization such as data augmentation or regularization methods (e.g.,
 dropout, batch normalization) and analyze their impact.
 
-## References
-[[1]](https://minigrid.farama.org/) Maxime Chevalier-Boisvert et al.: “Minigrid & Miniworld: Modular & Customizable Reinforcement Learning Environments
-for Goal-Oriented Tasks.” NeurIPS (2023).
+___
 
-[[2]](https://github.com/openai/procgen) Karl Cobbe et al.: “Leveraging Procedural Generation to Benchmark Reinforcement Learning.” ArXiv preprint (2019),
-available at arXiv:1912:01588.
+## Prequisites
+- You need python 3.10.0 (**not** latest 3.10) otherwise procgen and gym will not run!
 
-[[3](https://github.com/facebookresearch/nle) Heinrich Küttler et al.: “The NetHack Learning Environment” NeurIPS (2020). Available
-at .
-
-[[4]](https://openreview.net/attachment?id=SWrwurHAeq&name=pdf) Matthias Weissenbacher et al.: “SiT: Symmetry-Invariant Transformers for Generalisation in Reinforcement Learning.”
-ArXiv preprint (2024), available at arXiv:2406:15025.
-
-## Requirements
-- We need python 3.10.0 otherwise procgen and gym will not run!
+___
 
 ## Setup
 
@@ -58,6 +53,23 @@ source venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
+
+
+___
+
+## References
+[[1]](https://minigrid.farama.org/) Maxime Chevalier-Boisvert et al.: “Minigrid & Miniworld: Modular & Customizable Reinforcement Learning Environments
+for Goal-Oriented Tasks.” NeurIPS (2023).
+
+[[2]](https://github.com/openai/procgen) Karl Cobbe et al.: “Leveraging Procedural Generation to Benchmark Reinforcement Learning.” ArXiv preprint (2019),
+available at arXiv:1912:01588.
+
+[[3]](https://github.com/facebookresearch/nle) Heinrich Küttler et al.: “The NetHack Learning Environment” NeurIPS (2020). Available
+at .
+
+[[4]](https://openreview.net/attachment?id=SWrwurHAeq&name=pdf) Matthias Weissenbacher et al.: “SiT: Symmetry-Invariant Transformers for Generalisation in Reinforcement Learning.”
+ArXiv preprint (2024), available at arXiv:2406:15025.
+
 
 
 
